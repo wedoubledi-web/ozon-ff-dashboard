@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ozon — короба для ФФ</title>
+<style>
+:root {
+  --bg:#f4f6f9; --surface:#fff; --border:#d8dee8; --text:#1a2332; --muted:#5c6b80;
+  --accent:#005bff; --accent-soft:#e8f0ff; --green:#0a7a3e; --radius:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.45;min-height:100vh}
+.wrap{max-width:920px;margin:0 auto;padding:16px 14px 40px}
+header{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:14px}
+header h1{font-size:1.35rem;font-weight:800}
+header .sub{color:var(--muted);font-size:.9rem;margin-top:4px}
+.meta{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-top:14px;font-size:.88rem}
+.meta div{display:flex;flex-direction:column;gap:2px}
+.meta span{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.03em}
+.search-box{background:var(--surface);border:2px solid var(--accent);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+.search-box label{display:block;font-weight:700;margin-bottom:8px;font-size:1rem}
+.search-box input{width:100%;font-size:1.15rem;padding:14px 16px;border:1px solid var(--border);border-radius:10px}
+.search-result{margin-top:14px;display:none;background:var(--accent-soft);border-radius:12px;padding:16px;text-align:center}
+.search-result.show{display:block}
+.search-result .box-num{font-size:3.5rem;font-weight:900;color:var(--accent);line-height:1}
+.search-result .box-meta{margin-top:8px;font-size:1rem;color:var(--muted)}
+.tabs{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.tab{flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);padding:12px;border-radius:10px;font-size:.95rem;font-weight:600;cursor:pointer;color:var(--muted)}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.panel{display:none}.panel.active{display:block}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;overflow:hidden}
+.card-head{padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fafbfd}
+.card-head:hover{background:#f0f4fa}
+.card-head .no{font-size:1.4rem;font-weight:800;color:var(--accent);min-width:2.5rem}
+.card-head .info{font-size:.88rem;color:var(--muted);flex:1}
+.card-head .region{font-weight:700;color:var(--text);font-size:.95rem}
+.card-body{display:none;border-top:1px solid var(--border);padding:0}
+.card.open .card-body{display:block}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th,td{padding:10px 12px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+th{background:#f8fafc;color:var(--muted);font-size:.72rem;text-transform:uppercase}
+.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.dl{display:inline-block;margin-top:12px;background:var(--green);color:#fff;text-decoration:none;padding:10px 16px;border-radius:10px;font-weight:700;font-size:.92rem}
+.empty{padding:40px 20px;text-align:center;color:var(--muted)}
+footer{margin-top:20px;text-align:center;color:var(--muted);font-size:.78rem}
+@media(max-width:600px){.meta{grid-template-columns:1fr}.search-result .box-num{font-size:2.8rem}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header id="hdr">
+  <h1>📦 Ozon — что в какой короб</h1>
+  <p class="sub">Для фулфилмента · загрузка…</p>
+  <div class="meta" id="meta"></div>
+  <a class="dl" id="xlsxLink" href="latest.xlsx" download style="display:none">⬇ Скачать Excel</a>
+</header>
+
+<div class="search-box">
+  <label for="q">Нашёл товар — в какой короб?</label>
+  <input id="q" type="search" placeholder="Артикул или название…" autocomplete="off">
+  <div class="search-result" id="searchResult"></div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-tab="boxes">По коробам</button>
+  <button class="tab" data-tab="sku">По товару</button>
+</div>
+
+<div class="panel active" id="panel-boxes"></div>
+<div class="panel" id="panel-sku">
+  <div class="card" style="padding:0">
+    <div style="max-height:70vh;overflow:auto">
+      <table id="skuTable"><thead><tr>
+        <th>Артикул</th><th>Название</th><th class="num">Шт</th><th class="num">Короб</th><th>Куда едет</th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+</div>
+
+<footer>Обновляет команда из Ozon API · открывай с телефона или компа</footer>
+</div>
+
+<script>
+let DATA = null;
+
+async function load() {
+  const r = await fetch('data.json?' + Date.now());
+  if (!r.ok) throw new Error('Нет data.json');
+  DATA = await r.json();
+  render();
+}
+
+function render() {
+  const m = DATA.meta;
+  document.querySelector('#hdr .sub').textContent =
+    `Поставка ${m.order_number} · ${m.state} · обновлено ${m.generated}`;
+  document.getElementById('meta').innerHTML = [
+    ['Слот отгрузки', m.timeslot],
+    ['Точка сдачи', m.dropoff],
+    ['Коробов', m.box_count],
+    ['Адрес', m.dropoff_address],
+  ].map(([k,v]) => `<div><span>${k}</span><strong>${v||'—'}</strong></div>`).join('');
+  document.getElementById('xlsxLink').style.display = 'inline-block';
+
+  const boxesEl = document.getElementById('panel-boxes');
+  boxesEl.innerHTML = DATA.boxes.map(b => `
+    <div class="card" data-box="${b.no}">
+      <div class="card-head" onclick="this.parentElement.classList.toggle('open')">
+        <span class="no">${b.no}</span>
+        <div>
+          <div class="region">${b.region}</div>
+          <div class="info">${b.zone} · ${b.items.length} поз. · ${b.barcode}</div>
+        </div>
+        <span style="color:var(--muted)">▼</span>
+      </div>
+      <div class="card-body">
+        <table><thead><tr><th>Артикул</th><th>Название</th><th class="num">Шт</th></tr></thead>
+        <tbody>${b.items.map(i => `<tr><td><strong>${esc(i.article)}</strong></td><td>${esc(i.name)}</td><td class="num">${i.qty}</td></tr>`).join('')}</tbody></table>
+      </div>
+    </div>`).join('');
+
+  document.querySelector('#skuTable tbody').innerHTML = DATA.by_sku.map(r => `
+    <tr data-q="${esc((r['Артикул']+' '+r['Название']).toLowerCase())}">
+      <td><strong>${esc(r['Артикул'])}</strong></td>
+      <td>${esc(r['Название'])}</td>
+      <td class="num">${r['Шт всего']}</td>
+      <td class="num">${r['→ Короб №']}</td>
+      <td>${esc(r['Куда едет'])}</td>
+    </tr>`).join('');
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+}
+
+function doSearch(q) {
+  const el = document.getElementById('searchResult');
+  q = q.trim().toLowerCase();
+  if (!q || !DATA) { el.classList.remove('show'); return; }
+  const hit = DATA.by_sku.find(r =>
+    String(r['Артикул']).toLowerCase().includes(q) ||
+    String(r['Название']).toLowerCase().includes(q)
+  );
+  if (!hit) {
+    el.innerHTML = '<div style="color:var(--muted)">Не найдено</div>';
+    el.classList.add('show');
+    return;
+  }
+  el.innerHTML = `
+    <div style="font-size:.95rem;color:var(--muted)">${esc(hit['Артикул'])} · ${esc(hit['Название'])}</div>
+    <div class="box-num">КОРОБ ${hit['→ Короб №']}</div>
+    <div class="box-meta">Куда едет: <strong>${esc(hit['Куда едет'])}</strong> · ${hit['Шт всего']} шт</div>`;
+  el.classList.add('show');
+  const card = document.querySelector(`.card[data-box="${hit['→ Короб №']}"]`);
+  if (card) { card.classList.add('open'); card.scrollIntoView({behavior:'smooth', block:'center'}); }
+}
+
+document.getElementById('q').addEventListener('input', e => doSearch(e.target.value));
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+load().catch(err => {
+  document.querySelector('#hdr .sub').textContent = 'Ошибка: ' + err.message;
+  document.getElementById('panel-boxes').innerHTML = '<div class="empty">Нет данных. Попроси команду обновить.</div>';
+});
+</script>
+</body>
+</html>
