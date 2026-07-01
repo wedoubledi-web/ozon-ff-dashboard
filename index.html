@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Ozon — короба для ФФ</title>
 <style>
 :root {
@@ -29,6 +32,7 @@ header .sub{color:var(--muted);font-size:.9rem;margin-top:4px}
 .chip:hover{background:#dce8ff}
 .err{color:var(--red);margin-top:10px;font-size:.9rem;display:none}
 .err.show{display:block}
+.ver{margin-top:10px;font-size:.78rem;color:var(--muted)}
 .search-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px}
 .search-box label{display:block;font-weight:700;margin-bottom:8px;font-size:1rem}
 .search-box input{width:100%;font-size:1.05rem;padding:12px 14px;border:1px solid var(--border);border-radius:10px}
@@ -67,6 +71,7 @@ footer{margin-top:20px;text-align:center;color:var(--muted);font-size:.78rem}
     <button class="btn" id="openBtn" type="button">Открыть</button>
   </div>
   <div class="recent" id="recent"></div>
+  <p class="ver" id="verInfo"></p>
   <div class="err" id="pickErr"></div>
 </div>
 
@@ -141,6 +146,8 @@ async function loadCatalog() {
   const r = await fetch('catalog.json?' + Date.now());
   if (!r.ok) throw new Error('Нет catalog.json — попроси обновить сайт');
   CATALOG = await r.json();
+  document.getElementById('verInfo').textContent =
+    `Каталог обновлён: ${CATALOG.generated} · ${CATALOG.supplies.length} поставок · v2`;
   const recent = document.getElementById('recent');
   recent.innerHTML = CATALOG.supplies.slice(0, 8).map(s =>
     `<span class="chip" data-slug="${esc(s.slug)}" title="${esc(s.state)}">${esc(s.order_number)} · ${s.box_count} кор.</span>`
