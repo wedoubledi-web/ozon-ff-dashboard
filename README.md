@@ -15,7 +15,11 @@
 3. Поиск по артикулу → номер короба
 4. **Скачать Excel** именно по этой поставке
 
-## Обновление (из Cursor или терминала)
+## Обновление
+
+**Автоматически:** GitHub Actions каждые 2 часа тянет данные из Ozon API и публикует сайт — Mac может быть выключен.
+
+**Вручную** (из Cursor или терминала):
 
 ```bash
 python3 Бизнес/Маркетплейсы/Ozon/scripts/publish_ff_dashboard.py
@@ -27,3 +31,5 @@ python3 Бизнес/Маркетплейсы/Ozon/scripts/publish_ff_dashboard.
 python3 Бизнес/Маркетплейсы/Ozon/scripts/ozon_ff_boxes.py
 python3 Бизнес/Маркетплейсы/Ozon/scripts/publish_ff_dashboard.py --skip-build
 ```
+
+Принудительный запуск в облаке: GitHub → `kursor-wb` → Actions → **Ozon FF Dashboard** → Run workflow.
