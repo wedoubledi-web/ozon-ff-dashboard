@@ -30,8 +30,10 @@ header .sub{color:var(--muted);font-size:.9rem;margin-top:4px}
 .recent{margin-top:12px;display:flex;flex-wrap:wrap;gap:6px}
 .chip{background:var(--accent-soft);border:1px solid #c5d9ff;color:var(--accent);padding:6px 12px;border-radius:999px;font-size:.82rem;font-weight:600;cursor:pointer}
 .chip:hover{background:#dce8ff}
-.err{color:var(--red);margin-top:10px;font-size:.9rem;display:none}
+.err{color:var(--red);margin-top:10px;font-size:.9rem;display:none;background:#fdecea;border:1px solid #f5c6c2;border-radius:10px;padding:12px 14px;font-weight:600}
 .err.show{display:block}
+.loading{color:var(--muted);margin-top:10px;font-size:.9rem;display:none}
+.loading.show{display:block}
 .ver{margin-top:10px;font-size:.78rem;color:var(--muted)}
 .search-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px}
 .search-box label{display:block;font-weight:700;margin-bottom:8px;font-size:1rem}
@@ -72,6 +74,7 @@ footer{margin-top:20px;text-align:center;color:var(--muted);font-size:.78rem}
   </div>
   <div class="recent" id="recent"></div>
   <p class="ver" id="verInfo"></p>
+  <div class="loading" id="pickLoading">Загружаю поставку…</div>
   <div class="err" id="pickErr"></div>
 </div>
 
@@ -117,7 +120,16 @@ function esc(s) {
 }
 
 function norm(s) {
-  return String(s ?? '').trim().toLowerCase().replace(/\s+/g, '');
+  return String(s ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[–—−]/g, '-')
+    .replace(/\//g, '-');
+}
+
+function slugify(query) {
+  return String(query ?? '').trim().replace(/\//g, '-');
 }
 
 function findSupply(query) {
@@ -136,10 +148,27 @@ function showErr(msg) {
   const el = document.getElementById('pickErr');
   el.textContent = msg;
   el.classList.add('show');
+  document.getElementById('pickLoading').classList.remove('show');
 }
 
 function hideErr() {
   document.getElementById('pickErr').classList.remove('show');
+}
+
+function setLoading(on) {
+  document.getElementById('pickLoading').classList.toggle('show', on);
+  document.getElementById('openBtn').disabled = on;
+}
+
+function clearSupplyView() {
+  document.getElementById('hdr').style.display = 'none';
+  document.getElementById('skuSearch').style.display = 'none';
+  document.getElementById('tabsBar').style.display = 'none';
+  document.getElementById('panel-boxes').innerHTML = '';
+  document.querySelector('#skuTable tbody').innerHTML = '';
+  document.getElementById('searchResult').classList.remove('show');
+  DATA = null;
+  currentSlug = null;
 }
 
 async function loadCatalog() {
@@ -147,7 +176,7 @@ async function loadCatalog() {
   if (!r.ok) throw new Error('Нет catalog.json — попроси обновить сайт');
   CATALOG = await r.json();
   document.getElementById('verInfo').textContent =
-    `Каталог обновлён: ${CATALOG.generated} · ${CATALOG.supplies.length} поставок · v2`;
+    `Каталог обновлён: ${CATALOG.generated} · ${CATALOG.supplies.length} поставок · v3`;
   const recent = document.getElementById('recent');
   recent.innerHTML = CATALOG.supplies.slice(0, 8).map(s =>
     `<span class="chip" data-slug="${esc(s.slug)}" title="${esc(s.state)}">${esc(s.order_number)} · ${s.box_count} кор.</span>`
@@ -157,29 +186,69 @@ async function loadCatalog() {
   });
 }
 
-async function openSupply(slug) {
-  hideErr();
-  const entry = CATALOG.supplies.find(s => s.slug === slug);
-  if (!entry) { showErr('Поставка не найдена в каталоге'); return; }
-
+async function loadSupplyJson(slug) {
   const r = await fetch(`supplies/${encodeURIComponent(slug)}.json?` + Date.now());
-  if (!r.ok) { showErr('Нет данных по этой поставке'); return; }
-
-  DATA = await r.json();
-  currentSlug = slug;
-  document.getElementById('supplyNum').value = entry.order_number;
-  render();
-  location.hash = slug;
+  if (!r.ok) return null;
+  return r.json();
 }
 
-function openByInput() {
-  const q = document.getElementById('supplyNum').value;
-  const hit = findSupply(q);
-  if (!hit) {
-    showErr(`Поставка «${q}» не найдена. Выбери из списка ниже или проверь номер.`);
+async function openSupply(slug, orderNumber) {
+  hideErr();
+  setLoading(true);
+  clearSupplyView();
+
+  const payload = await loadSupplyJson(slug);
+  if (!payload) {
+    setLoading(false);
+    showErr('Нет данных по этой поставке на сайте');
     return;
   }
-  openSupply(hit.slug);
+
+  DATA = payload;
+  currentSlug = slug;
+  const entry = CATALOG?.supplies?.find(s => s.slug === slug);
+  document.getElementById('supplyNum').value = orderNumber || entry?.order_number || payload.meta?.order_number || slug;
+  render();
+  location.hash = slug;
+  setLoading(false);
+}
+
+async function openByInput() {
+  const raw = document.getElementById('supplyNum').value;
+  const q = raw.trim();
+  if (!q) {
+    showErr('Введи номер поставки, например 117111449-1');
+    return;
+  }
+
+  hideErr();
+  setLoading(true);
+  clearSupplyView();
+
+  const hit = findSupply(q);
+  if (hit) {
+    await openSupply(hit.slug, hit.order_number);
+    return;
+  }
+
+  const slug = slugify(q);
+  const payload = await loadSupplyJson(slug);
+  if (payload) {
+    DATA = payload;
+    currentSlug = slug;
+    document.getElementById('supplyNum').value = payload.meta?.order_number || q;
+    render();
+    location.hash = slug;
+    setLoading(false);
+    return;
+  }
+
+  setLoading(false);
+  showErr(
+    `Поставка «${q}» не найдена на сайте. ` +
+    `Проверь номер или выбери из списка ниже. ` +
+    `Если поставка только что создана — попроси обновить сайт.`
+  );
 }
 
 function render() {
@@ -268,10 +337,9 @@ document.querySelectorAll('.tab').forEach(btn => {
 
 loadCatalog().then(() => {
   const hash = decodeURIComponent(location.hash.replace(/^#/, ''));
-  if (hash && CATALOG.supplies.some(s => s.slug === hash)) {
-    openSupply(hash);
-  } else if (CATALOG.default_slug) {
-    openSupply(CATALOG.default_slug);
+  if (hash) {
+    const entry = CATALOG.supplies.find(s => s.slug === hash);
+    openSupply(hash, entry?.order_number);
   }
 }).catch(err => {
   showErr(err.message);
