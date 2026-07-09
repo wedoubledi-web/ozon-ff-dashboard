@@ -1,11 +1,11 @@
 {
-  "generated": "2026-07-08",
+  "generated": "2026-07-09",
   "supplies": [
     {
       "slug": "117111449-1",
       "order_number": "117111449-1",
       "order_id": 115278928,
-      "state": "В пути",
+      "state": "ACCEPTANCE_AT_STORAGE_WAREHOUSE",
       "timeslot": "07.07.2026 14:00 – 15:00",
       "box_count": 18,
       "created": "2026-07-04"
