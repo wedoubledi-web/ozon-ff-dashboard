@@ -1,0 +1,53 @@
+# Автообновление с Ozon API — бесплатно (публичный репозиторий)
+name: Refresh Ozon FF
+
+on:
+  schedule:
+    - cron: "0 */2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ozon-ff-refresh
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python deps
+        run: pip install -r requirements-ff.txt
+
+      - name: Собрать из Ozon API
+        env:
+          OZON_CLIENT_ID: ${{ secrets.OZON_CLIENT_ID }}
+          OZON_API_KEY: ${{ secrets.OZON_API_KEY }}
+          OZON_FF_DASHBOARD_DIR: .
+          OZON_FF_ENV_FILE: .env
+        run: |
+          set -euo pipefail
+          test -n "$OZON_CLIENT_ID" || { echo "Нет secret OZON_CLIENT_ID"; exit 1; }
+          test -n "$OZON_API_KEY" || { echo "Нет secret OZON_API_KEY"; exit 1; }
+          printf 'OZON_CLIENT_ID=%s\nOZON_API_KEY=%s\n' "$OZON_CLIENT_ID" "$OZON_API_KEY" > .env
+          python3 scripts/ozon_ff_boxes.py --build-web --web-limit 80
+
+      - name: Опубликовать на GitHub Pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html catalog.json supplies/ README.md
+          if git diff --staged --quiet; then
+            echo "Без изменений"
+            exit 0
+          fi
+          git commit -m "auto update $(date -u +%F)"
+          git push
