@@ -2,15 +2,6 @@
   "generated": "2026-09-24",
   "supplies": [
     {
-      "slug": "128789786-1",
-      "order_number": "128789786-1",
-      "order_id": 129236514,
-      "state": "ACCEPTANCE_AT_STORAGE_WAREHOUSE",
-      "timeslot": "20.09.2026 14:00 – 15:00",
-      "box_count": 9,
-      "created": "2026-09-17"
-    },
-    {
       "slug": "123761459-1",
       "order_number": "123761459-1",
       "order_id": 124320735,
@@ -119,5 +110,5 @@
       "created": "2026-03-16"
     }
   ],
-  "default_slug": "128789786-1"
+  "default_slug": "123761459-1"
 }
