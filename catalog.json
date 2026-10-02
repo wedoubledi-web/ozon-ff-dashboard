@@ -2,6 +2,15 @@
   "generated": "2026-10-02",
   "supplies": [
     {
+      "slug": "2000068806736",
+      "order_number": "2000068806736",
+      "order_id": 132087393,
+      "state": "ACCEPTANCE_AT_STORAGE_WAREHOUSE",
+      "timeslot": "03.10.2026 05:00 – 06:00",
+      "box_count": 1,
+      "created": "2026-10-02"
+    },
+    {
       "slug": "127899126-1",
       "order_number": "127899126-1",
       "order_id": 127786653,
@@ -119,5 +128,5 @@
       "created": "2026-03-16"
     }
   ],
-  "default_slug": "127899126-1"
+  "default_slug": "2000068806736"
 }
